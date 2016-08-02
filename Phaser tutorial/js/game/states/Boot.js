@@ -10,7 +10,6 @@ ZenvaRunner.Boot.prototype = {
   create: function() {
     this.game.stage.backgroundColor = "#fff"
 
-    //only going to use 1 input, no multi-touch
     this.input.maxPointers = 1
 
     if(this.game.device.desktop) {
