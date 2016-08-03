@@ -7,11 +7,18 @@ ZenvaRunner.Game = function() {
   this.enemyRate = 500
   this.enemyTimer = 0
   this.score = 0
+  this.previousCoinType = null
+
+  this.coinSpawnX = null
+  this.coinSpacingX = 10
+  this.coinSpacingY = 10
 }
 
 ZenvaRunner.Game.prototype = {
   create: function() {
-    this.background = this.game.add.tileSprite( 0, 0, 1136, 472, "background");
+
+    this.game.world.bound = new Phaser.Rectangle(0, 0, this.game.width + 300, this.game.height)
+    this.background = this.game.add.tileSprite( 0, 0, this.game.width, 472, "background");
     this.background.autoScroll(-100,0)
 
     this.foreground = this.game.add.tileSprite(0, 470, this.game.width, this.game.height - 533, "foreground")
@@ -44,13 +51,19 @@ ZenvaRunner.Game.prototype = {
     this.scoreText = this.game.add.bitmapText(10,10, "minecraftia", "Score: 0", 24)
 
     this.jetSound = this.game.add.audio("rocket")
+    this.coinSound = this.game.add.audio("coin")
+    this.deathSound = this.game.add.audio("death")
+    this.gameMusic = this.game.add.audio("gameMusic")
+    this.gameMusic.play("", "", 0.2, true)
+
+    this.coinSpawnX = this.game.width + 64
 
   },
   update: function() {
     if(this.game.input.activePointer.isDown) {
-      this.player.body.velocity.y -= 25
+      this.player.body.velocity.y -= 20
       if(!this.jetSound.isPlaying) {
-        this.jetSound.play("", 0, true, 0.1)
+        this.jetSound.play("", "", 0.4, true)
       }
     } else {
       this.jetSound.stop()
@@ -70,7 +83,7 @@ ZenvaRunner.Game.prototype = {
     }
 
     if(this.coinTimer < this.game.time.now) {
-      this.createCoin()
+      this.generateCoins()
       this.coinTimer = this.game.time.now + this.coinRate
     }
 
@@ -107,8 +120,55 @@ ZenvaRunner.Game.prototype = {
 
     coin.reset(x, y)
     coin.revive()
-
+    return coin
   },
+  generateCoins: function() {
+    if(!this.previousCoinType || this.previousCoinType < 3) {
+      var coinType = this.game.rnd.integer() % 5
+      switch(coinType)  {
+        case 0:
+          break;
+        case 1:
+        case 2:
+          this.createCoin()
+          break
+        case 3:
+          this.createCoinGroup(2, 2)
+          break
+        case 4:
+          this.createCoinGroup(6,2)
+          break
+        default:
+          this.previousCoinType = 0
+          break
+      }
+     this.previousCoinType = coinType
+   } else {
+     if(this.previousCoinType === 4) {
+       this.previousCoinType = 3
+     } else {
+       this.previousCoinType = 0
+     }
+   }
+ },
+
+ createCoinGroup: function(columns, rows) {
+   var coinSpawnY = this.game.rnd.integerInRange(50, this.game.world.height - 192)
+   var coinRowCounter = 0
+   var coinColumnCounter = 0
+   var coin
+   for(var i = 0; i < columns * rows; i++) {
+     coin = this.createCoin(this.spawnX, coinSpawnY)
+     coin.x = coin.x + (coinColumnCounter * coin.width) + (coinColumnCounter * this.coinSpacingX)
+     coin.y = coinSpawnY + (coinRowCounter * coin.height) + (coinRowCounter * this.coinSpacingY)
+     coinColumnCounter++
+     if(i+1 >= columns && (i+1) % columns === 0) {
+       coinRowCounter++
+       coinColumnCounter = 0
+     }
+   }
+
+ },
   createEnemy: function() {
     var x = this.game.width
     var y = this.game.rnd.integerInRange(50, this.game.world.height - 162)
@@ -130,11 +190,27 @@ ZenvaRunner.Game.prototype = {
   coinHit: function(player, coin) {
     this.score++
     coin.kill()
-    this.scoreText.text = "Score " + this.score
+    this.coinSound.play("", "", 0.2)
+
+    var dummyCoin = new Coin(this.game, coin.x, coin.y)
+    this.game.add.existing(dummyCoin)
+
+    dummyCoin.animations.play("spin", 40, true)
+
+    var scoreTween = this.game.add.tween(dummyCoin).to({x: 50, y: 50}, 300, Phaser.Easing.Linear.NONE, true)
+
+    scoreTween.onComplete.add(function() {
+      dummyCoin.destroy()
+      this.scoreText.text = "Score " + this.score
+    }, this)
   },
   enemyHit: function(player, enemy) {
     player.kill()
     enemy.kill()
+
+    this.deathSound.play("", "", 0.2)
+    this.gameMusic.stop()
+
     this.ground.stopScroll()
     this.background.stopScroll()
     this.foreground.stopScroll()
