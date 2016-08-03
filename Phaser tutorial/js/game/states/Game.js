@@ -3,6 +3,10 @@ ZenvaRunner.Game = function() {
   this.playerMaxAngle = 20
   this.coinRate = 1000
   this.coinTimer = 0
+
+  this.enemyRate = 500
+  this.enemyTimer = 0
+  this.score = 0
 }
 
 ZenvaRunner.Game.prototype = {
@@ -35,11 +39,21 @@ ZenvaRunner.Game.prototype = {
     this.player.body.bounce.set(0.25)
 
     this.coins = this.game.add.group()
+    this.enemies = this.game.add.group()
+
+    this.scoreText = this.game.add.bitmapText(10,10, "minecraftia", "Score: 0", 24)
+
+    this.jetSound = this.game.add.audio("rocket")
 
   },
   update: function() {
     if(this.game.input.activePointer.isDown) {
       this.player.body.velocity.y -= 25
+      if(!this.jetSound.isPlaying) {
+        this.jetSound.play("", 0, true, 0.1)
+      }
+    } else {
+      this.jetSound.stop()
     }
 
     if(this.player.body.velocity.y < 0 || this.game.input.activePointer.isDown) {
@@ -55,18 +69,83 @@ ZenvaRunner.Game.prototype = {
       }
     }
 
-    // if(this.coinTimer < this.game.time.now) {
-    //   this.creatCoin()
-    //   this.cointtimer = this.game.time.now + this.coinRate
-    // }
+    if(this.coinTimer < this.game.time.now) {
+      this.createCoin()
+      this.coinTimer = this.game.time.now + this.coinRate
+    }
+
+    if(this.enemyTimer < this.game.time.now) {
+      this.createEnemy()
+      this.enemyTimer = this.game.time.now + this.enemyRate
+    }
 
     this.game.physics.arcade.collide(this.player, this.ground, this.groundHit, null, this)
+    this.game.physics.arcade.overlap(this.player, this.coins, this.coinHit, null, this)
+    this.game.physics.arcade.overlap(this.player, this.enemies, this.enemyHit, null, this)
+
+
 
   },
   shutdown: function() {
-  },
+    this.coins.destroy()
+    this.enemies.destroy()
+    this.score = 0
+    this.coinTimer = 0
+    this.enemyTimer = 0
 
-    groundHit: function(player, ground) {
+  },
+  createCoin: function() {
+    var x = this.game.width
+    var y = this.game.rnd.integerInRange(50, this.game.world.height - 162)
+
+
+    var coin = this.coins.getFirstExists(false)
+    if(!coin) {
+      coin = new Coin(this.game, 0, 0)
+      this.coins.add(coin)
+    }
+
+    coin.reset(x, y)
+    coin.revive()
+
+  },
+  createEnemy: function() {
+    var x = this.game.width
+    var y = this.game.rnd.integerInRange(50, this.game.world.height - 162)
+
+
+    var enemy = this.enemies.getFirstExists(false)
+    if(!enemy) {
+      enemy = new Enemy(this.game, 0, 0)
+      this.enemies.add(enemy)
+    }
+
+    enemy.reset(x, y)
+    enemy.revive()
+
+  },
+  groundHit: function(player, ground) {
       player.body.velocity.y -=200
   },
+  coinHit: function(player, coin) {
+    this.score++
+    coin.kill()
+    this.scoreText.text = "Score " + this.score
+  },
+  enemyHit: function(player, enemy) {
+    player.kill()
+    enemy.kill()
+    this.ground.stopScroll()
+    this.background.stopScroll()
+    this.foreground.stopScroll()
+
+    this.enemies.setAll("body.velocity.x", 0)
+    this.coins.setAll("body.velocity.x", 0)
+
+    this.enemyTimer = Number.MAX_VALUE
+    this.coinTimer = Number.MAX_VALUE
+
+    var scoreboard = new Scoreboard(this.game)
+    scoreboard.show(this.score)
+  }
 }

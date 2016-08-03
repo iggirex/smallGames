@@ -1,12 +1,13 @@
 var Coin = function(game, x, y, key, frame) {
-  key = "coin"
+  key = "coins"
   Phaser.Sprite.call(this, game, x, y, key, frame)
 
   this.scale.setTo(0.5)
   this.anchor.setTo(0.5)
 
-  this.animation.add("spin")
-  this.game.physics.arcade.anableBody(this)
+  this.animations.add("spin")
+
+  this.game.physics.arcade.enableBody(this)
   this.body.allowGravity = false
 
   this.checkWorldBounds = true
@@ -21,7 +22,7 @@ Coin.prototype.constructor = Coin
 
 Coin.prototype.onRevived = function() {
   this.body.velocity.x = -400
-  this.animation.play("spin", 10, true)
+  this.animations.play("spin", 10, true)
 }
 
 Coin.prototype.onKilled = function() {
